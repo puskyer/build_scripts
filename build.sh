@@ -35,7 +35,7 @@ if [ "$build" == "atrix" ] ; then
          cp $boardolympuspanel_tmp  $boardolympuspanel
       fi
    fi
-if
+fi
 
 source build/envsetup.sh    >>$dobuildlog 2>&1
 breakfast $device  >>$dobuildlog 2>&1     # for atrix
