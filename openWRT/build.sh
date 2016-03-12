@@ -28,6 +28,19 @@ do_update() {
 ./scripts/feeds install -a
 # time save to minimise downloads during compile time.. distclean deletes all ./dl so rerun  both defclean and download.
 make download
+
+}
+
+do_get_config() {
+
+#if we have our own config us it or else download
+if [ ! -e config.pusky ] ; then
+# Get the configuration for Broadcom WNDR3400
+	wget -O .config https://downloads.openwrt.org/chaos_calmer/15.05/brcm47xx/mips74k/config.diff 
+else
+	cp  config.pusky .config
+fi
+
 }
 
 
@@ -50,6 +63,8 @@ while true ; do
 	  exit 0 ;;
         -D) debug="V=s" ; shift ;;
 	-d)
+# Get the prebuilt .config file for different routers
+	    do_get_config
 # Run make menuconfig and select the target system type and the device profile.
 	   make menuconfig
 #make defconfig will now give you the default configuration for the selected profile. It is important to use this as the starting point.
@@ -59,36 +74,48 @@ while true ; do
 	   ln -sf ../dl
 # time save to minimise downloads during compile time.. distclean deletes all ./dl so rerun  both defclean and download.
            make download
-	   shift ;;
+	   shift ; exit 0 ;;
 #nukes everything you have compiled or configured and also deletes all downloaded feeds contents and package sources.
 # CAUTION: In addition to all else, this will erase your build configuration (<buildroot_dir>/.config), your toolchain and all other sources.
         -f) do_distclean
-            shift ;;
+            shift ; exit 0 ;;
 # deletes contents of the directories /bin and /build_dir and additionally /staging_dir and /toolchain (=the cross-compile tools) and /logs. 'Dirclean' is your basic "Full clean" operation.
         -p) make dirclean
-	    shift ;;
+	    shift ; exit 0 ;;
 #
         -u) do_update
             shift ;;
-#
-	-c)
-	    case "$2" in
-                "") cp ../config.ar71xx_generic .config ; shift 2 ;;
-                *) cp ../$2.config .config ; shift 2 ;;
-            esac ;;
+# Get the prebuilt .config file for different routers
+	-c) do_get_config
+	    shift ; exit 0 ;;
+            
         --) shift ; break ;;
         *) echo "Internal error!" ; exit 1 ;;
     esac
 done
 
-make package/symlinks
-make prereq
-# Again invoke menuconfig and select all the packages you need.
-# You can get the current list of packages installed on your device with opkg list_installed.
-# You can search in menuconfig as you would in a kernel build config screen. 
-make menuconfig
-# If you're happy with the configuration, save the difference to the default configuration to a file: scripts/diffconfig.sh > my-own-config
-#time make -j6 $debug
-#If you are building everything (not just packages enough to make a flashable image) and build stops on a package you don't care about 
-# you can skip failed packages by using IGNORE_ERRORS=1
-time ionice -c 3 nice -n 20 make -j 6 V=s CONFIG_DEBUG_SECTION_MISMATCH=y 2>&1 | tee build.log | egrep -i '(warn|error)'
+if [ -e ".config" ] ; then 
+	# alwasy enabe debug for now
+	debug="V=s"
+	myj=`nproc`
+
+	make package/symlinks
+	# Again invoke menuconfig and select all the packages you need.
+	# You can get the current list of packages installed on your device with opkg list_installed.
+	# You can search in menuconfig as you would in a kernel build config screen. 
+	# make menuconfig
+	# Disable the compile-only packages AND disable the SDK (for fast builds)
+	# and make sure we have build prereqs
+	sed --in-place=.bak -e 's/=m$/=n/g' -e 's/^CONFIG_SDK=y$/CONFIG_SDK=n/' .config  
+	make prereq
+	# If you're happy with the configuration, save the difference to the default configuration to a file: scripts/diffconfig.sh > my-own-config
+	#time make -j6 $debug
+	#If you are building everything (not just packages enough to make a flashable image) and build stops on a package you don't care about 
+	# you can skip failed packages by using IGNORE_ERRORS=1
+	time ionice -c 3 nice -n 20 make -j $myj $debug CONFIG_DEBUG_SECTION_MISMATCH=y 2>&1 | tee build.log | egrep -i '(warn|error)'
+else
+
+	echo -e "the .config file does not exist???? \n"
+
+fi
+
