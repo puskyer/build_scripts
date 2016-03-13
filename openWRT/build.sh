@@ -18,6 +18,7 @@ debug=""
 
 do_distclean() {
 	make distclean
+	do_get_config
 	do_update
 }
 
@@ -64,7 +65,7 @@ while true ; do
         -D) debug="V=s" ; shift ;;
 	-d)
 # Get the prebuilt .config file for different routers
-	    do_get_config
+	   do_get_config
 # Run make menuconfig and select the target system type and the device profile.
 	   make menuconfig
 #make defconfig will now give you the default configuration for the selected profile. It is important to use this as the starting point.
@@ -88,7 +89,6 @@ while true ; do
 # Get the prebuilt .config file for different routers
 	-c) do_get_config
 	    shift ; exit 0 ;;
-            
         --) shift ; break ;;
         *) echo "Internal error!" ; exit 1 ;;
     esac
@@ -103,7 +103,7 @@ if [ -e ".config" ] ; then
 	# Again invoke menuconfig and select all the packages you need.
 	# You can get the current list of packages installed on your device with opkg list_installed.
 	# You can search in menuconfig as you would in a kernel build config screen. 
-	# make menuconfig
+	make menuconfig
 	# Disable the compile-only packages AND disable the SDK (for fast builds)
 	# and make sure we have build prereqs
 	sed --in-place=.bak -e 's/=m$/=n/g' -e 's/^CONFIG_SDK=y$/CONFIG_SDK=n/' .config  
